@@ -56,7 +56,7 @@ class BookHandler(private val vertx: Vertx) {
     val book = mapper.readValue(ctx.body().asString(), Book::class.java)
     val fileUploadList: List<FileUpload> = ctx.fileUploads()
     for(file in fileUploadList){
-      
+
     }
     repository.insert(book)
       .onSuccess {
