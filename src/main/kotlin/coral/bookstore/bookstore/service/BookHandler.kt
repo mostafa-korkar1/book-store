@@ -2,9 +2,12 @@ package coral.bookstore.bookstore.service
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import coral.bookstore.bookstore.entity.Book
+import coral.bookstore.bookstore.models.BookInfo
 import coral.bookstore.bookstore.repository.BookRepository
 import coral.bookstore.bookstore.repository.DBConnection
+import io.vertx.core.AsyncResult
 import io.vertx.core.Future
+import io.vertx.core.MultiMap
 import io.vertx.core.Vertx
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.json.Json
@@ -49,13 +52,25 @@ class BookHandler(private val vertx: Vertx) {
 
   fun getImage(ctx: RoutingContext) {
     var bookId = Integer.valueOf(ctx.pathParam("id"))
-    val uploadedFile: Buffer = vertx.fileSystem().readFileBlocking(imagesDir.plus(bookId))
-    ctx.response().end(uploadedFile.bytes.toString())
+
+    vertx.fileSystem().readFile(imagesDir.plus(bookId))
+      .onSuccess{
+        println(it.length())
+        var response = ctx.response()
+        response.putHeader("Content-Type", "application/octet")
+        response.putHeader("Content-Disposition", "attachment; filename=\"picture.png\"")
+        response.putHeader("Content-Length", it.length().toString())
+        response.write(it)
+        response.end()
+      }
+      .onFailure { buildErrorResponse(it, ctx) }
   }
 
   fun insert(ctx: RoutingContext) {
     val repository = initDB(vertx)
-    val book = mapper.readValue(ctx.body().asString(), Book::class.java)
+
+    val formAttributes : MultiMap = ctx.request().formAttributes()
+    val book = Book(0,formAttributes.get("isbn"),formAttributes.get("title"),formAttributes.get("description"),formAttributes.get("price").toLong())
 
     repository.insert(book)
       .onSuccess {  returnedId : Long ->
