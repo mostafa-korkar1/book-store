@@ -50,7 +50,6 @@ class BookRepository(private val client: PgPool) {
   }
 
   fun insert(book: Book): Future<Long> {
-    
     return client
       .preparedQuery("INSERT INTO book (id,isbn, title, description, price) VALUES (nextval('book_id_seq'),$1, $2, $3, $4) RETURNING (id)")
       .execute(

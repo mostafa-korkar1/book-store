@@ -6,9 +6,11 @@ import coral.bookstore.bookstore.repository.BookRepository
 import coral.bookstore.bookstore.repository.DBConnection
 import io.vertx.core.Future
 import io.vertx.core.Vertx
+import io.vertx.core.buffer.Buffer
 import io.vertx.core.json.Json
 import io.vertx.ext.web.FileUpload
 import io.vertx.ext.web.RoutingContext
+import java.io.File
 import java.util.logging.Logger
 
 class BookHandler(private val vertx: Vertx) {
@@ -37,7 +39,7 @@ class BookHandler(private val vertx: Vertx) {
     val repository = initDB(vertx)
 
     var bookId = Integer.valueOf(ctx.pathParam("id"))
-    println("bookId : $bookId")
+    LOGGER.info("bookId : $bookId")
     repository.get(bookId)
       .onSuccess {
         ctx.response().end(Json.encodePrettily(it))
@@ -46,21 +48,27 @@ class BookHandler(private val vertx: Vertx) {
   }
 
   fun getImage(ctx: RoutingContext) {
-    val repository = initDB(vertx)
     var bookId = Integer.valueOf(ctx.pathParam("id"))
-
+    val uploadedFile: Buffer = vertx.fileSystem().readFileBlocking(imagesDir.plus(bookId))
+    ctx.response().end(uploadedFile.bytes.toString())
   }
 
   fun insert(ctx: RoutingContext) {
     val repository = initDB(vertx)
     val book = mapper.readValue(ctx.body().asString(), Book::class.java)
-    val fileUploadList: List<FileUpload> = ctx.fileUploads()
-    for(file in fileUploadList){
 
-    }
     repository.insert(book)
-      .onSuccess {
-        println("returned val : $it")
+      .onSuccess {  returnedId : Long ->
+        LOGGER.info("returned val : $returnedId")
+        //upload image and rename it to be linked with book id
+        val fileUploadList: List<FileUpload> = ctx.fileUploads()
+        var file = fileUploadList[0]
+        val lastIndexOf = file.uploadedFileName().lastIndexOf("/")
+        var fullPath = file.uploadedFileName().substring(0,lastIndexOf+1).plus(returnedId)
+        val src = File(file.uploadedFileName())
+        val renamedTo = src.renameTo(File(fullPath))
+        LOGGER.info("renamedTo: $renamedTo")
+
         val response = ctx.response()
         response.setChunked(true)
         response.setStatusCode(201)
@@ -75,7 +83,7 @@ class BookHandler(private val vertx: Vertx) {
     var bookId = Integer.valueOf(ctx.pathParam("id"))
     repository.delete(bookId)
       .onSuccess {
-        println("deleted rows : $it")
+        LOGGER.info("deleted rows : $it")
         val response = ctx.response()
         response.setChunked(true)
         response.write("SUCCESS")
@@ -91,7 +99,7 @@ class BookHandler(private val vertx: Vertx) {
 
     repository.update(bookId, book)
       .onSuccess {
-        println("updated rows : $it")
+        LOGGER.info("updated rows : $it")
         val response = ctx.response()
         response.setChunked(true)
         response.write("SUCCESS")
@@ -105,7 +113,7 @@ class BookHandler(private val vertx: Vertx) {
     var isbn = ctx.pathParam("isbn")
     repository.exists(isbn)
       .onSuccess {
-        println("exists : $it")
+        LOGGER.info("exists : $it")
         ctx.response().end(it.toString())
       }
       .onFailure { buildErrorResponse(it, ctx) }
@@ -118,7 +126,7 @@ class BookHandler(private val vertx: Vertx) {
 
     repository.setTitle(bookId, newTitle)
       .onSuccess {
-        println("updated rows : $it")
+        LOGGER.info("updated rows : $it")
         val response = ctx.response()
         response.setChunked(true)
         response.write("SUCCESS")
@@ -134,6 +142,7 @@ class BookHandler(private val vertx: Vertx) {
   }
 
   companion object {
+    private const val imagesDir = "./upload-images/"
     private val LOGGER = Logger.getLogger(BookHandler::class.java.name)
     val mapper = jacksonObjectMapper()
     val buildErrorResponse: (Throwable, RoutingContext) -> Future<Void> = { err: Throwable, ctx: RoutingContext ->
@@ -141,7 +150,7 @@ class BookHandler(private val vertx: Vertx) {
       response.setChunked(true)
       response.setStatusCode(500)
       response.write("<html><body><h1>Something Error Happen</h1></body></html>")
-      println("Error : $err")
+      LOGGER.info("Error : $err")
       response.end()
     }
 

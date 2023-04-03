@@ -37,9 +37,9 @@ class MainVertical : AbstractVerticle() {
     var router = Router.router(vertx)
     router.get("/books").handler{ ctx -> bookHandler.list(ctx)}
     router.get("/books/:id").handler{ ctx -> bookHandler.get(ctx)}
-    router.get("/books/:id/image").handler{ ctx -> }
+    router.get("/books/:id/image").handler{ ctx -> bookHandler.getImage(ctx)}
     router.post("/books")
-      .handler(BodyHandler.create().setHandleFileUploads(true).setUploadsDirectory("./upload-images/"))
+      .handler(BodyHandler.create().setHandleFileUploads(true).setUploadsDirectory("./upload-images").setMergeFormAttributes(true))
       .handler{ ctx -> bookHandler.insert(ctx)}
     router.delete("/books/:id").handler{ ctx -> bookHandler.delete(ctx)}
     router.put("/books/:id").handler(BodyHandler.create()).handler{ ctx -> bookHandler.update(ctx)}
